@@ -21,18 +21,26 @@ const getAllProductsStatic = async (req, res) => {
     Test de que elementos mostrar de cada item.
     const products = await Products.find({}).select('name price')
     */
+    
     /* 
     Test limit 
     limit(cantidad de items q va a agarrar)
     skip(saltea cantidad de items) ej tengo 10, skip(1) va a mostrar del 2 al 10
     const products = await Products.find({}).select('name price').limit(10)
-    */
-
     const products = await Products.find({})
     .sort('name')
     .select('name price')
     .limit(10)
     .skip(5)
+    */
+
+    /*
+    Test Filtro Numerico
+    */
+    const products = await Products.find({price:{$gt:30}})
+        .sort('price')
+        .select('name price')
+
 
     res.status(200).json({ nbHits: products.length, products})
 }
@@ -40,7 +48,7 @@ const getAllProductsStatic = async (req, res) => {
 
 const getAllProducts = async (req, res) => {
     // const products = await Products.find(req.query) Setup basica, se pasa toda la query recibida.
-    const { featured, company, name, sort, fields} = req.query // una forma es destructurar la query recibida y solo manipular lo q necesitamos
+    const { featured, company, name, sort, fields, numericFilters} = req.query // una forma es destructurar la query recibida y solo manipular lo q necesitamos
     const queryObject = {}
 
     if (featured) { // si existe el parametro featured(no importa si es t o f), creamos un nuevo parametro en el objeto queryObject
@@ -51,6 +59,27 @@ const getAllProducts = async (req, res) => {
     }
     if (name) {
         queryObject.name = { $regex: name, $options: 'i' }
+    }
+    if (numericFilters) {
+        const operatorMap = {
+            '>': ':$gt',
+            '>=': ':$gte',
+            '=': ':$eq',
+            '<=': ':$lte',
+            '<': ':$lt',
+        }
+        const regEx = /\b(>|>=|=|<=|<)\b/g //stackOverflow para realizar reemplazo
+        let filters = numericFilters.replace(
+            regEx,
+            (match) => `-${operatorMap[match]}-`)
+        
+        const options = ['price', 'rating']
+        filters = filters.split(',', ' ').forEach((item) => {
+            const [field, operator, value] = item.split('-')
+            if(options.includes(field)){
+                queryObject[field] = {[operator]:Number(value)}
+            }
+        })
     }
     
     // console.log(queryObject);
